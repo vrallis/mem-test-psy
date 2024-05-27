@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', function() {
             alert("You have already participated in this experiment. Thank you!");
             jsPsych.endExperiment("Already Participated");
           } else {
-            await setDoc(docRef, { participated: true, uid: uid, memorizedWords: [] });
+            await setDoc(docRef, { participated: true, uid: uid, memorizedWords: [], forcedSubmissionMemorization: false, forcedSubmissionRecall: false });
             jsPsych.data.addProperties({ studentID: id });
           }
         }
@@ -110,12 +110,17 @@ document.addEventListener('DOMContentLoaded', function() {
       on_load: function() {
         let timer = 180; // 3 minutes in seconds
         const timerElement = document.getElementById('timer');
-        const interval = setInterval(() => {
+        const interval = setInterval(async () => {
           const minutes = Math.floor(timer / 60);
           const seconds = timer % 60;
           timerElement.textContent = `Time left: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
           if (timer === 0) {
             clearInterval(interval);
+            const id = jsPsych.data.get().values()[0].studentID;
+            const docRef = doc(db, "participants", id);
+            await updateDoc(docRef, {
+              forcedSubmissionMemorization: true
+            });
             jsPsych.finishTrial();
           }
           timer--;
@@ -136,7 +141,7 @@ document.addEventListener('DOMContentLoaded', function() {
       on_load: function() {
         let recallTimer = 120; // 2 minutes in seconds
         const recallTimerElement = document.getElementById('recall-timer');
-        const recallInterval = setInterval(() => {
+        const recallInterval = setInterval(async () => {
           const minutes = Math.floor(recallTimer / 60);
           const seconds = recallTimer % 60;
           recallTimerElement.textContent = `Time left: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
@@ -144,9 +149,9 @@ document.addEventListener('DOMContentLoaded', function() {
             clearInterval(recallInterval);
             const id = jsPsych.data.get().values()[0].studentID;
             const docRef = doc(db, "participants", id);
-            updateDoc(docRef, {
+            await updateDoc(docRef, {
               submissionTime: new Date().toISOString(),
-              forcedSubmission: true
+              forcedSubmissionRecall: true
             });
             jsPsych.finishTrial();
           }
@@ -181,7 +186,7 @@ document.addEventListener('DOMContentLoaded', function() {
           const docRef = doc(db, "participants", id);
           await updateDoc(docRef, {
             submissionTime: new Date().toISOString(),
-            forcedSubmission: false
+            forcedSubmissionRecall: false
           });
           jsPsych.finishTrial();
         });
