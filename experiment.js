@@ -93,13 +93,20 @@ document.addEventListener('DOMContentLoaded', function() {
       type: 'html-button-response',
       stimulus: `
         <div id="timer" style="font-size: 24px; text-align: center;"></div>
-        <div style="text-align: center;">
-          <ul style="list-style-type: none;">
-            ${words.map(word => `<li style="font-size: 20px;">${word}</li>`).join('')}
-          </ul>
+        <div style="display: flex; justify-content: center;">
+          <div style="margin-right: 50px;">
+            <ul style="list-style-type: none;">
+              ${words.slice(0, Math.ceil(words.length / 2)).map(word => `<li style="font-size: 20px;">${word}</li>`).join('')}
+            </ul>
+          </div>
+          <div>
+            <ul style="list-style-type: none;">
+              ${words.slice(Math.ceil(words.length / 2)).map(word => `<li style="font-size: 20px;">${word}</li>`).join('')}
+            </ul>
+          </div>
         </div>
       `,
-      choices: ['Next'],
+      choices: [],
       on_load: function() {
         let timer = 180; // 3 minutes in seconds
         const timerElement = document.getElementById('timer');
@@ -119,6 +126,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const recall = {
       type: 'html-button-response',
       stimulus: `
+        <div id="recall-timer" style="font-size: 24px; text-align: center;"></div>
         <p>Type each word you remember and press Enter. The input will clear after each word.</p>
         <input type="text" id="recall-input" autocomplete="off">
         <p id="error-message" style="color: red;"></p>
@@ -126,6 +134,25 @@ document.addEventListener('DOMContentLoaded', function() {
       choices: ['Finish'],
       button_html: '<button class="jspsych-btn" id="finish-btn">%choice%</button>',
       on_load: function() {
+        let recallTimer = 120; // 2 minutes in seconds
+        const recallTimerElement = document.getElementById('recall-timer');
+        const recallInterval = setInterval(() => {
+          const minutes = Math.floor(recallTimer / 60);
+          const seconds = recallTimer % 60;
+          recallTimerElement.textContent = `Time left: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+          if (recallTimer === 0) {
+            clearInterval(recallInterval);
+            const id = jsPsych.data.get().values()[0].studentID;
+            const docRef = doc(db, "participants", id);
+            updateDoc(docRef, {
+              submissionTime: new Date().toISOString(),
+              forcedSubmission: true
+            });
+            jsPsych.finishTrial();
+          }
+          recallTimer--;
+        }, 1000);
+
         const input = document.getElementById('recall-input');
         const errorMessage = document.getElementById('error-message');
         input.addEventListener('keypress', async function(event) {
@@ -149,6 +176,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         document.getElementById('finish-btn').addEventListener('click', async function() {
+          clearInterval(recallInterval);
           const id = jsPsych.data.get().values()[0].studentID;
           const docRef = doc(db, "participants", id);
           await updateDoc(docRef, {
@@ -157,16 +185,6 @@ document.addEventListener('DOMContentLoaded', function() {
           });
           jsPsych.finishTrial();
         });
-
-        setTimeout(async function() {
-          const id = jsPsych.data.get().values()[0].studentID;
-          const docRef = doc(db, "participants", id);
-          await updateDoc(docRef, {
-            submissionTime: new Date().toISOString(),
-            forcedSubmission: true
-          });
-          jsPsych.finishTrial();
-        }, 2 * 60 * 1000); // 2 minutes for recall phase
       }
     };
 
