@@ -1,12 +1,13 @@
 // experiment.js
 
 import { db, auth, signInAnonymously, onAuthStateChanged } from './firebase.js';
-import { collection, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.1/firebase-firestore.js';
+import { collection, doc, getDoc, setDoc, updateDoc, arrayUnion } from 'https://www.gstatic.com/firebasejs/10.12.1/firebase-firestore.js';
 
 document.addEventListener('DOMContentLoaded', function() {
   // Handle Authentication
   onAuthStateChanged(auth, user => {
     if (user) {
+      console.log("User authenticated with UID:", user.uid);
       startExperiment(user.uid);
     } else {
       signInAnonymously(auth).catch(error => {
@@ -16,14 +17,17 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   async function startExperiment(uid) {
+    console.log("Starting experiment with UID:", uid);
+
     const words = [
-        "Table", "Giraffe", "Pencil", "Mountain", "Butterfly", "Computer", "Ocean", "Bottle", "Lamp", "Keyboard",
-        "River", "Camera", "Bread", "Elephant", "Chair", "Airplane", "Banana", "Clock", "Window", "Garden"
-    ]
+      "apple", "banana", "carrot", "door", "elephant", "flower", "guitar",
+      "house", "ice", "jacket", "kite", "lemon", "monkey", "notebook",
+      "orange", "piano", "queen", "river", "sun", "tree"
+    ];
 
     const welcome = {
       type: 'html-button-response',
-      stimulus: '<p>Welcome to the memory test experiment. By group 16!</p>',
+      stimulus: '<p>Welcome to the memory test experiment</p>',
       choices: ['Start']
     };
 
@@ -45,7 +49,7 @@ document.addEventListener('DOMContentLoaded', function() {
             alert("You have already participated in this experiment. Thank you!");
             jsPsych.endExperiment("Already Participated");
           } else {
-            await setDoc(docRef, { participated: true, uid: uid });
+            await setDoc(docRef, { participated: true, uid: uid, memorizedWords: [] });
             jsPsych.data.addProperties({ studentID: id });
           }
         }
@@ -85,19 +89,85 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     };
 
-    const wordStimuli = words.map(word => ({
-      type: 'html-keyboard-response',
-      stimulus: `<p>${word}</p>`,
-      choices: jsPsych.NO_KEYS,
-      trial_duration: 9000
-    }));
+    const displayWords = {
+      type: 'html-button-response',
+      stimulus: `
+        <div id="timer" style="font-size: 24px; text-align: center;"></div>
+        <div style="text-align: center;">
+          <ul style="list-style-type: none;">
+            ${words.map(word => `<li style="font-size: 20px;">${word}</li>`).join('')}
+          </ul>
+        </div>
+      `,
+      choices: ['Next'],
+      on_load: function() {
+        let timer = 180; // 3 minutes in seconds
+        const timerElement = document.getElementById('timer');
+        const interval = setInterval(() => {
+          const minutes = Math.floor(timer / 60);
+          const seconds = timer % 60;
+          timerElement.textContent = `Time left: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+          if (timer === 0) {
+            clearInterval(interval);
+            jsPsych.finishTrial();
+          }
+          timer--;
+        }, 1000);
+      }
+    };
 
     const recall = {
-      type: 'survey-text',
-      questions: [
-        {prompt: "Type as many words as you can remember:", rows: 10, columns: 50}
-      ],
-      data: { task: 'recall' }
+      type: 'html-button-response',
+      stimulus: `
+        <p>Type each word you remember and press Enter. The input will clear after each word.</p>
+        <input type="text" id="recall-input" autocomplete="off">
+        <p id="error-message" style="color: red;"></p>
+      `,
+      choices: ['Finish'],
+      button_html: '<button class="jspsych-btn" id="finish-btn">%choice%</button>',
+      on_load: function() {
+        const input = document.getElementById('recall-input');
+        const errorMessage = document.getElementById('error-message');
+        input.addEventListener('keypress', async function(event) {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            const word = input.value.trim().toLowerCase();
+            const id = jsPsych.data.get().values()[0].studentID;
+            const docRef = doc(db, "participants", id);
+
+            if (words.includes(word)) {
+              await updateDoc(docRef, {
+                memorizedWords: arrayUnion(word)
+              });
+              input.value = ''; // Clear the input
+              errorMessage.textContent = ''; // Clear error message
+            } else {
+              errorMessage.textContent = 'Invalid word. Please try again.';
+              input.value = ''; // Clear the input
+            }
+          }
+        });
+
+        document.getElementById('finish-btn').addEventListener('click', async function() {
+          const id = jsPsych.data.get().values()[0].studentID;
+          const docRef = doc(db, "participants", id);
+          await updateDoc(docRef, {
+            submissionTime: new Date().toISOString(),
+            forcedSubmission: false
+          });
+          jsPsych.finishTrial();
+        });
+
+        setTimeout(async function() {
+          const id = jsPsych.data.get().values()[0].studentID;
+          const docRef = doc(db, "participants", id);
+          await updateDoc(docRef, {
+            submissionTime: new Date().toISOString(),
+            forcedSubmission: true
+          });
+          jsPsych.finishTrial();
+        }, 2 * 60 * 1000); // 2 minutes for recall phase
+      }
     };
 
     const thankYou = {
@@ -107,45 +177,24 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     const condition = Math.random() > 0.5 ? 'music' : 'no_music';
+    console.log("Assigned condition:", condition);
 
     const timeline = [
       welcome,
       studentID,
-      {
-        timeline: condition === 'music' ? [
-          instructions_with_music,
-          playMusic,
-          ...wordStimuli,
-          stopMusic,
-          recall,
-          thankYou
-        ] : [
-          instructions_without_music,
-          ...wordStimuli,
-          recall,
-          thankYou
-        ]
-      }
+      condition === 'music' ? instructions_with_music : instructions_without_music,
+      ...(condition === 'music' ? [playMusic] : []),
+      displayWords,
+      ...(condition === 'music' ? [stopMusic] : []),
+      recall,
+      thankYou
     ];
 
     jsPsych.init({
       timeline: timeline,
-      on_finish: function() {
-        const data = jsPsych.data.get().csv();
-        downloadCSV(data);
+      on_finish: async function() {
+        console.log("Experiment completed");
       }
     });
-
-    function downloadCSV(data) {
-      const blob = new Blob([data], { type: 'text/csv' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.download = 'experiment_data.csv';
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-    }
   }
 });
