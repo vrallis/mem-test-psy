@@ -49,8 +49,9 @@ document.addEventListener('DOMContentLoaded', function() {
             alert("You have already participated in this experiment. Thank you!");
             jsPsych.endExperiment("Already Participated");
           } else {
-            await setDoc(docRef, { participated: true, uid: uid, memorizedWords: [], forcedSubmissionMemorization: false, forcedSubmissionRecall: false });
-            jsPsych.data.addProperties({ studentID: id });
+            const musicCondition = Math.random() < 0.5 ? 'with_music' : 'without_music';
+            await setDoc(docRef, { uid: uid, memorizedWords: [], forcedSubmissionRecall: false, music: musicCondition });
+            jsPsych.data.addProperties({ studentID: id, music: musicCondition });
           }
         }
       }
@@ -108,7 +109,7 @@ document.addEventListener('DOMContentLoaded', function() {
       `,
       choices: [],
       on_load: function() {
-        let timer = 180; // 3 minutes in seconds
+        let timer = 120; // 2 minutes in seconds
         const timerElement = document.getElementById('timer');
         const interval = setInterval(async () => {
           const minutes = Math.floor(timer / 60);
@@ -184,9 +185,12 @@ document.addEventListener('DOMContentLoaded', function() {
           clearInterval(recallInterval);
           const id = jsPsych.data.get().values()[0].studentID;
           const docRef = doc(db, "participants", id);
+          const docSnap = await getDoc(docRef);
+          const guessedWords = docSnap.data().memorizedWords.length;
           await updateDoc(docRef, {
             submissionTime: new Date().toISOString(),
-            forcedSubmissionRecall: false
+            forcedSubmissionRecall: false,
+            guessedWords: guessedWords
           });
           jsPsych.finishTrial();
         });
@@ -205,6 +209,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const timeline = [
       welcome,
       studentID,
+      {
+        type: 'call-function',
+        func: async function() {
+          const id = jsPsych.data.get().values()[0].studentID;
+          const docRef = doc(db, "participants", id);
+          await updateDoc(docRef, { music: condition });
+        }
+      },
       condition === 'music' ? instructions_with_music : instructions_without_music,
       ...(condition === 'music' ? [playMusic] : []),
       displayWords,
