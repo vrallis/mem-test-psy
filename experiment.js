@@ -109,7 +109,7 @@ document.addEventListener('DOMContentLoaded', function() {
       `,
       choices: [],
       on_load: function() {
-        let timer = 120; // 2 minutes in seconds
+        let timer = 120; 
         const timerElement = document.getElementById('timer');
         const interval = setInterval(async () => {
           const minutes = Math.floor(timer / 60);
@@ -140,7 +140,7 @@ document.addEventListener('DOMContentLoaded', function() {
       choices: ['Finish'],
       button_html: '<button class="jspsych-btn" id="finish-btn">%choice%</button>',
       on_load: function() {
-        let recallTimer = 120; // 2 minutes in seconds
+        let recallTimer = 120;
         const recallTimerElement = document.getElementById('recall-timer');
         const recallInterval = setInterval(async () => {
           const minutes = Math.floor(recallTimer / 60);
@@ -172,11 +172,11 @@ document.addEventListener('DOMContentLoaded', function() {
               await updateDoc(docRef, {
                 memorizedWords: arrayUnion(word)
               });
-              input.value = ''; // Clear the input
-              errorMessage.textContent = ''; // Clear error message
+              input.value = '';
+              errorMessage.textContent = '';
             } else {
               errorMessage.textContent = 'Invalid word. Please try again.';
-              input.value = ''; // Clear the input
+              input.value = '';
             }
           }
         });
@@ -220,8 +220,8 @@ document.addEventListener('DOMContentLoaded', function() {
       condition === 'music' ? instructions_with_music : instructions_without_music,
       ...(condition === 'music' ? [playMusic] : []),
       displayWords,
-      ...(condition === 'music' ? [stopMusic] : []),
       recall,
+      ...(condition === 'music' ? [stopMusic] : []),
       thankYou
     ];
 
