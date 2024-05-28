@@ -52,6 +52,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const musicCondition = Math.random() < 0.5 ? 'with_music' : 'without_music';
             await setDoc(docRef, { uid: uid, memorizedWords: [], forcedSubmissionRecall: false, music: musicCondition });
             jsPsych.data.addProperties({ studentID: id, music: musicCondition });
+
+            // Start the rest of the experiment timeline after setting the condition
+            startTimeline(musicCondition);
           }
         }
       }
@@ -208,36 +211,35 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const thankYou = {
       type: 'html-button-response',
-      stimulus: '<p>Thank you for your participation.</p>',
+      stimulus: '<p>Thank you for your participation. Your answers have been logged. You may now close this window.</p>',
       choices: ['Finish']
     };
 
-    const condition = Math.random() > 0.5 ? 'music' : 'no_music';
-    console.log("Assigned condition:", condition);
+    function startTimeline(musicCondition) {
+      const timeline = [
+        musicCondition === 'with_music' ? instructions_with_music : instructions_without_music,
+        ...(musicCondition === 'with_music' ? [playMusic] : []),
+        displayWords,
+        recall,
+        ...(musicCondition === 'with_music' ? [stopMusic] : []),
+        thankYou
+      ];
 
-    const timeline = [
-      welcome,
-      studentID,
-      {
-        type: 'call-function',
-        func: async function() {
-          const id = jsPsych.data.get().values()[0].studentID;
-          const docRef = doc(db, "participants", id);
-          await updateDoc(docRef, { music: condition });
+      jsPsych.init({
+        timeline: timeline,
+        on_finish: async function() {
+          console.log("Experiment completed");
         }
-      },
-      condition === 'music' ? instructions_with_music : instructions_without_music,
-      ...(condition === 'music' ? [playMusic] : []),
-      displayWords,
-      recall,
-      ...(condition === 'music' ? [stopMusic] : []),
-      thankYou
-    ];
+      });
+    }
+
+    // Start the initial part of the experiment to collect student ID
+    const initialTimeline = [welcome, studentID];
 
     jsPsych.init({
-      timeline: timeline,
+      timeline: initialTimeline,
       on_finish: async function() {
-        console.log("Experiment completed");
+        console.log("ID Collection Complete");
       }
     });
   }
