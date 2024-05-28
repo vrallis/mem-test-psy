@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const studentID = {
       type: 'survey-text',
       questions: [
-        {prompt: "Please enter your Student ID (starting with 'i' followed by 7 digits):", rows: 1, columns: 20}
+        { prompt: "Please enter your Student ID (starting with 'i' followed by 7 digits):", rows: 1, columns: 20 }
       ],
       data: { task: 'studentID' },
       on_finish: async function(data) {
@@ -59,8 +59,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const instructions_with_music = {
       type: 'html-button-response',
-      stimulus: '<p>Memorize the following words while listening to music.</p>',
-      choices: ['Begin']
+      stimulus: `
+        <p>Memorize the following words while listening to music.</p>
+        <button id="test-sound-btn" class="jspsych-btn">Test Sound</button>
+      `,
+      choices: ['Begin'],
+      on_load: function() {
+        document.getElementById('test-sound-btn').addEventListener('click', function() {
+          const testAudio = new Audio('assets/test_sound.mp3');
+          testAudio.play();
+        });
+      }
     };
 
     const instructions_without_music = {
@@ -109,7 +118,7 @@ document.addEventListener('DOMContentLoaded', function() {
       `,
       choices: [],
       on_load: function() {
-        let timer = 120; 
+        let timer = 120; // 2 minutes in seconds
         const timerElement = document.getElementById('timer');
         const interval = setInterval(async () => {
           const minutes = Math.floor(timer / 60);
@@ -140,7 +149,7 @@ document.addEventListener('DOMContentLoaded', function() {
       choices: ['Finish'],
       button_html: '<button class="jspsych-btn" id="finish-btn">%choice%</button>',
       on_load: function() {
-        let recallTimer = 120;
+        let recallTimer = 120; // 2 minutes in seconds
         const recallTimerElement = document.getElementById('recall-timer');
         const recallInterval = setInterval(async () => {
           const minutes = Math.floor(recallTimer / 60);
@@ -172,11 +181,11 @@ document.addEventListener('DOMContentLoaded', function() {
               await updateDoc(docRef, {
                 memorizedWords: arrayUnion(word)
               });
-              input.value = '';
-              errorMessage.textContent = '';
+              input.value = ''; // Clear the input
+              errorMessage.textContent = ''; // Clear error message
             } else {
               errorMessage.textContent = 'Invalid word. Please try again.';
-              input.value = '';
+              input.value = ''; // Clear the input
             }
           }
         });
