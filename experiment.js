@@ -27,14 +27,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const welcome = {
       type: 'html-button-response',
-      stimulus: '<p>Welcome to the memory test experiment</p>',
+      stimulus: '<p>Welcome to the memory test experiment.<br>Group 16<br> <br>By participating in this experiment you agree to share your student ID.<br> You can only attempt this experiment once.<br> <br>If you close the browser window or get disconnected during the experiment you also will<br>not be able to attempt the experiment again.</p>',
       choices: ['Start']
     };
 
     const studentID = {
       type: 'survey-text',
       questions: [
-        {prompt: "Please enter your Student ID (starting with 'i' followed by 7 digits):", rows: 1, columns: 20}
+        { prompt: "Please enter your Student ID (starting with 'i' followed by 7 digits):", rows: 1, columns: 20 }
       ],
       data: { task: 'studentID' },
       on_finish: async function(data) {
@@ -59,13 +59,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const instructions_with_music = {
       type: 'html-button-response',
-      stimulus: '<p>Memorize the following words while listening to music.</p>',
-      choices: ['Begin']
+      stimulus: `
+        <p>Memorize the following words while listening to music. You have 2 minutes.<br>After the 2 minutes are over you will try to recall as many words as possible.<br> <br>Make sure your sound is working before you begin.</p>
+        <button id="test-sound-btn" class="jspsych-btn">Test Sound</button>
+      `,
+      choices: ['Begin'],
+      on_load: function() {
+        document.getElementById('test-sound-btn').addEventListener('click', function() {
+          const testAudio = new Audio('assets/test_sound.mp3');
+          testAudio.play();
+        });
+      }
     };
 
     const instructions_without_music = {
       type: 'html-button-response',
-      stimulus: '<p>Memorize the following words without any music.</p>',
+      stimulus: '<p>Memorize the following words without any music. You have 2 minutes.<br>After the 2 minutes are over you will try to recall as many words as possible.</p>',
       choices: ['Begin']
     };
 
@@ -220,8 +229,8 @@ document.addEventListener('DOMContentLoaded', function() {
       condition === 'music' ? instructions_with_music : instructions_without_music,
       ...(condition === 'music' ? [playMusic] : []),
       displayWords,
-      ...(condition === 'music' ? [stopMusic] : []),
       recall,
+      ...(condition === 'music' ? [stopMusic] : []),
       thankYou
     ];
 
